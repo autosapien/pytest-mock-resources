@@ -140,7 +140,11 @@ def wait_for_container(
         config.set("port", unused_tcp_port())
 
     check_fn = config.check_fn
-    run_args = (config.image,)
+    container_needs_mongo_replica_set = hasattr(config, "as_mongo_replica_set") and config.as_mongo_replica_set
+    if container_needs_mongo_replica_set:
+        run_args = (config.image, ["--replSet", "rs0"])   
+    else:
+        run_args = (config.image,)
     run_kwargs = {
         "publish": [(dest, source) for source, dest in config.ports().items()],
         "envs": config.environment(),
@@ -157,8 +161,12 @@ def wait_for_container(
         retry(check_fn, retries=1, interval=interval, on_exc=ContainerCheckFailed)
     except ContainerCheckFailed:
         # In the event it doesn't exist, we attempt to start the container
-        try:
+        try:            
             container = docker.run(*run_args, **run_kwargs, detach=True, remove=True)
+            if container_needs_mongo_replica_set:
+                time.sleep(1)
+                container.execute(["mongosh", "--eval", "rs.initiate()"])
+                time.sleep(5)
         except DockerException as e:
             container = None
             # This sometimes happens if multiple container fixtures race for the first

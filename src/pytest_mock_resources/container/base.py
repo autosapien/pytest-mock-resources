@@ -166,7 +166,7 @@ def wait_for_container(
             if container_needs_mongo_replica_set:
                 time.sleep(1)
                 container.execute(["mongosh", "--eval", "rs.initiate()"])
-                time.sleep(15) # wait for repliset to establish
+                time.sleep(1) # wait for repliset to establish
         except DockerException as e:
             container = None
             # This sometimes happens if multiple container fixtures race for the first
